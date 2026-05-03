@@ -1,0 +1,95 @@
+%Anmo Kim
+%3/10/2026
+% This code models wing responses to noisy visual patterns
+% for the paper by Hyosun Kim et al., 2026
+% entitled "Noise robustness in Drosophila vision"
+% Three key variables in the code
+%   x_i: response of loom-sensitive neuron, with a high noise robustness
+%   y_i: response of loom-sensitive neuron, with a low noise robustness
+%   w_i: wing response of the model fly
+%
+% Model: w_i = sigmoid(alpha*x_i + (1-alpha)*y_i + gamma), 
+%   where sigmoid(z) = 1/(1+exp(-z))
+% The code consists of the following three parts
+% step 1: define variables
+% step 2: simulate wing response for different alpha values
+% step 3: simulate wing response when signaling of either x_i or y_i is silenced
+
+%% step 1: define variables
+clear all;
+
+noise_percent = 0:10:70; % noise levels in percent
+x = fliplr(1-linspace(1,0, 8).^1.5);
+y = linspace(1,0, 8).^1.5;
+figure(1);clf;set(gcf,'color','w');
+haxes1 = subplot(121);
+plot(noise_percent, x, 'marker', '.', 'markersize', 12);hold on;
+plot(noise_percent, y, 'marker', '.', 'markersize', 12);
+plot(noise_percent, linspace(1,0, 8),'k:');
+xlabel('Noise level (%)');
+ylabel('Neural response (au)');
+title('Neural responses with different noise robustness levels');
+legend({'Encoder#1', 'Encoder#2'},'fontsize',12);
+
+
+%% step 2: simulate wing response for different alpha values
+
+%weight
+alpha = 0:0.25:1; 
+
+% inline nonlinearity
+sigmoid = @(u) 1./(1+exp(-(u-0.5)*15));%Sigmoid (with shifted, scaled horizontally)
+
+
+for i = 1:length(alpha)
+    input_to_nonlinearity = alpha(i)*x + (1-alpha(i))*y;
+    w(i,:) = sigmoid(input_to_nonlinearity);
+    legendstr{i}=['\alpha = ' num2str(alpha(i))];
+end
+haxes2 = subplot(122);
+plot(noise_percent, w', 'marker', '.', 'markersize', 12);title('Wing response for different \alpha values');
+xlabel('Noise level (%)');
+ylabel('Wing response (au)');
+set([haxes1 haxes2],'fontsize',12,'box','off','tickdir','out');
+legend(legendstr,'fontsize',12);
+savefig4(gcf, 'simple_model_fig1',[1200 500]);
+
+
+%% step 3: simulate wing response when signaling of either x_i or y_i is silenced
+alpha = 0.5;
+
+figure(3); clf;
+
+haxes1 = subplot(131);
+x_here = 0:0.01:1;
+plot(x_here, sigmoid(x_here));
+xlabel('Input (au)');ylabel('Output (au)');
+title('Nonlinearity (sigmoid function)');
+
+
+
+
+haxes2 = subplot(132);
+haxes3 = subplot(133);
+% control
+u = alpha*x + (1-alpha)*y;
+plot(haxes2, noise_percent, u, 'marker', '.', 'markersize', 12); hold(haxes2,'on');
+plot(haxes3, noise_percent, sigmoid(u), 'marker', '.', 'markersize', 12); hold(haxes3,'on');
+
+% x silenced
+u = 0.6*alpha*x + (1-alpha)*y;
+plot(haxes2, noise_percent, u/max(u), 'marker', '.', 'markersize', 12);
+plot(haxes3, noise_percent, sigmoid(u), 'marker', '.', 'markersize', 12);
+
+% y silenced
+u = alpha*x + 0.6*(1-alpha)*y;
+plot(haxes2, noise_percent, u/max(u), 'marker', '.', 'markersize', 12);
+plot(haxes3, noise_percent, sigmoid(u), 'marker', '.', 'markersize', 12);
+
+set([haxes1 haxes2 haxes3],'fontsize',12,'box','off','tickdir','out');
+xlabel(haxes2, 'Noise level (%)');
+xlabel(haxes3, 'Noise level (%)');
+ylabel('Wing response (au)');
+legend(haxes2, {'Control','x silenced', 'y silenced'},'fontsize',12);
+legend(haxes3, {'Control','x silenced', 'y silenced'},'fontsize',12);
+savefig4(gcf, 'simple_model_fig2',[1200 500]);
