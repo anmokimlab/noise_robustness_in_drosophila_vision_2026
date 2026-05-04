@@ -4,3 +4,5 @@ dist/
 *.h5
 *.pkl
 data/
+.DS_Store
+*.asv
