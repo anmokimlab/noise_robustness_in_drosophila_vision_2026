@@ -112,11 +112,10 @@ end
     ylabel('mean delF'); xlabel('noise (%)');
 
 
-%% plot mean traces
+%% plot mean traces -- Figure 6C,6F
 figure; set(gcf,'Color','w');
 
 cm=colormap(turbo(11));
-% cm=repmat(linspace(0.2, 0.7, 9)', 1, 3);
 subplot(1,2,1);
 rectangle('Position',[1.5 -.1 0.2 .7 ],'FaceColor',[0.8 0.8 0.8],'EdgeColor',[0.8 0.8 0.8]);hold all;
 subplot(1,2,2);
@@ -136,7 +135,7 @@ for p=1:size(pat,2)
     legend(xtick,'Box','off');
 end
 
-%% plot mean amplitude
+%% plot mean amplitude / normalized mean amplitude -- Figure 6E,6H
 figure; set(gcf,'Color','w');
 
 subplot(1,2,1); hold all;
@@ -153,7 +152,6 @@ xticks(1:9); xticklabels(xtick);
 
 
 %%%%%%%%%%%%%%% ttest %%%%%%%%%%%%%%%%%%%%%%%
-
 for k=1:8
     locat=mean(amplitude_flight(:,pat(k)))+.05;
     [h p1(k)]=ttest(amplitude_non_flight(:,pat(k)),amplitude_flight(:,pat(k)));
@@ -176,40 +174,7 @@ xticks(1:9); xticklabels(xtick);
 legend('','nonFlght','','Flight','Box','off');
 
 
-
-%%
-% figure; set(gcf,'Color','w');
-% xtick={'0','10','20','30','40','50','60','70','100'};
-% 
-% subplot(1,2,1); hold all;
-% %non-flight response
-% errorbar(1:9,mean(amplitude_non_flight(:,[1,3,5:11])), std(amplitude_non_flight(:,[1,3,5:11]),1)/sqrt(size(nonFlightGcamp{n,p},1))*1.96,'Color',ones(1,3)*0.8);
-% plot(1:9,mean(amplitude_non_flight(:,[1,3,5:11])),'Marker','.','MarkerSize',20);
-% %flight response
-% errorbar((1:9)+.2,mean(amplitude_flight(:,[1,3,5:11])), std(amplitude_flight(:,[1,3,5:11]),1)/sqrt(size(flightGcamp{n,p},1))*1.96,'Color',ones(1,3)*0.8);
-% plot((1:9)+.2,mean(amplitude_flight(:,[1,3,5:11])),'Marker','.','MarkerSize',20);
-% 
-% set(gca,'Box','off','TickDir','out','FontSize',12);
-% ylabel('mean delF'); xlabel('noise (%)');
-% xticks(1:9); xticklabels(xtick); 
-% 
-% 
-% subplot(1,2,2); hold all;
-% 
-% %non-flight response
-% errorbar(norm_nonFlight2, std(single_norm_nonFlight2(:,1:9),1)/sqrt(size(nonFlightGcamp{n,p},1))*1.96,'Color',ones(1,3)*0.8);
-% plot(norm_nonFlight2,'Marker','.','MarkerSize',20);
-% %flight response
-% errorbar((1:9)+.2,norm_flight2, std(single_norm_flight2(:,1:9),1)/sqrt(size(flightGcamp{n,p},1))*1.96,'Color',ones(1,3)*0.8);
-% plot((1:9)+.2,norm_flight2,'Marker','.','MarkerSize',20);
-% 
-% set(gca,'Box','off','TickDir','out','FontSize',12);
-% ylabel('Normalized mean delF'); xlabel('noise (%)');
-% xticks(1:9); xticklabels(xtick); 
-% 
-% legend('','nonFlght','','Flight','Box','off');
-
-%% Bar plot 
+%% Bar plot of mean amplitude -- Figure 6D,6G
 figure; set(gcf,'Color','w');
 hold on;
 bar(1:9,[mean(amplitude_non_flight(:,pat));mean(amplitude_flight(:,pat))]);
