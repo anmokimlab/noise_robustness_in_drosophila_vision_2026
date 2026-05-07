@@ -188,8 +188,7 @@ for n=1:size(flightGcamp,1)
     end
 end
 
-% scatter((1:9)-.13,amplitude_non_flight(:,pat),'k','filled','SizeData',30);
-% scatter((1:9)+.13,amplitude_flight(:,pat),'r','filled','SizeData',30);
 set(gca,'Box','off','TickDir','out','FontSize',12);
 ylabel('mean delF'); xlabel('noise (%)');
 xticks(1:9); xticklabels(xtick);
+
