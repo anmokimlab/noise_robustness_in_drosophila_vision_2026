@@ -1,0 +1,1154 @@
+setwd("/Volumes/nisl/soobin/1.3DResnet/2.RESULTS(onon)/5.HMDB_RESOLUTION(320x240)_movement/NOISE_W.G.N.TRAIN/NOISE_20/results2")
+# val_json[["results"]][[1]][[1]]$label
+install.packages("rjson")#
+install.packages("tidyverse")#
+install.packages("moonBook")#
+install.packages("nord")#
+library(moonBook)#
+library(rjson)#
+library(tidyverse)#
+library(dplyr)#
+library(directlabels)#
+library(tidyverse)#
+library(nord)#
+#
+getwd()#
+#setwd("/Volumes/nisl/soobin/1.3DResnet/2.RESULTS(onon)/5.HMDB_RESOLUTION(320x240)_movement/NOISE_W.O.TRAIN/results2(default)")#
+#setwd("/Volumes/nisl/soobin/1.3DResnet/2.RESULTS(onon)/5.HMDB_RESOLUTION(320x240)_movement/NOISE_W.G.N.TRAIN/NOISE_10/results2")#
+setwd("/Volumes/nisl/soobin/1.3DResnet/2.RESULTS(onon)/5.HMDB_RESOLUTION(320x240)_movement/NOISE_W.G.N.TRAIN/NOISE_20/results1")#
+#setwd("/Volumes/nisl/soobin/1.3DResnet/2.RESULTS(onon)/5.HMDB_RESOLUTION(320x240)_movement/NOISE_W.TRAIN/results1(normalize255,relu)")#
+setwd("/Volumes/nisl/soobin/1.3DResnet/2.RESULTS(onon)/5.HMDB_RESOLUTION(320x240)_movement/NOISE_W.G.N.TRAIN/NOISE_20/results2")#
+val_json = fromJSON(file = "val.json")#
+val_json_df = as.data.frame(val_json)#
+View(val_json_df)#
+head(val_json_df)#
+#
+# val_json[["results"]][[1]][[1]]$label #
+#val_json[["results"]][[1]][[1]]$score #
+#
+# 1. 각 정답에 대해서 맞은 경우가 있나 보여주는 표#
+# 2. 맞은 경우 (top1에 대해서만) 개수를 세서 *100 acc로 표현 => 이상함...뭐지....spotup_L은 다 맞춤..?#
+# 3. scores의 평균#
+#
+table_func = function(JSONfile, topk_num){#
+    label = c()#
+    ground_truth = c()#
+    score = c()#
+    noise_pct = c()#
+    pattern_num = c()#
+    len <- length(attributes(val_json_df)$name)#
+    topk = 8#
+  for (i in seq(1, len, topk*2)) {#
+      tmp = strsplit(str_sub(attributes(val_json_df)$name[i],9,-7) ,split = "_")#
+      if ( sum(tmp[[1]] %in% "noise"| tmp[[1]] %in% "noisev2") >= 1){#
+        ground_truth = c(ground_truth, paste(tmp[[1]][1],tmp[[1]][2], sep = "_")) # ground truth#
+        noise_pct = c(noise_pct, gsub('\\D','', str_sub(attributes(val_json_df)$name[i],-9,-1)))#
+        label = c(label, val_json_df[attributes(val_json_df)$name[[i]]][[1]]) #predicted_label#
+        score = c(score, val_json_df[attributes(val_json_df)$name[i+1]][[1]]) #predicted_score#
+      }else if(sum(tmp[[1]] %in% "noise") == 0){#
+        ground_truth = c(ground_truth, paste(tmp[[1]][1],tmp[[1]][2], sep = "_")) # ground truth#
+        noise_pct = c(noise_pct, "0")#
+        label = c(label, val_json_df[attributes(val_json_df)$name[[i]]][[1]]) #predicted_label#
+        score = c(score, val_json_df[attributes(val_json_df)$name[i+1]][[1]]) #predicted_score#
+      }#
+    }#
+    Scores <- data.frame(ground_truth, noise_pct, label, score)#
+    return(Scores)#
+}#
+#
+#11520#
+length(ground_truth)#
+unique(noise_pct)#
+unique(ground_truth)#
+View(Scores)#
+Scores <- table_func(val_json_df, 8)#
+#1-length(which(Scores$ground_truth==Scores$label))/length(Scores$ground_truth)#
+write.csv(Scores, file="Scores.csv", quote = F)#
+getwd()#
+#
+############################################# Acc 구하기 ############################################################
+#noise 별로 score, acc 를 구할 수 있다.#
+#
+# 패턴과 노이즈에 따른 개수를 세기 위한 data frame#
+patterns = unique(Scores$ground_truth)#
+length(patterns)#
+t2 = Scores %>%#
+      group_by(ground_truth,noise_pct) %>%#
+      summarise(len = n(), .groups = "keep")#
+t2 %>% filter(ground_truth == "spotup_R")#
+#
+# acc, score 가 일치하는 경우의 acc를 계산하기 위한 data frame#
+#
+t1 = Scores %>%#
+  group_by(ground_truth, label, noise_pct) %>%#
+  filter(ground_truth == label)  %>%#
+  summarise(avg = mean(score), hit_num = n(), .groups = "keep")#
+####
+View(t1)#
+tmp <- data.frame(ground_truth = rep("spotup_R",1), label = rep("spotup_R",1), noise_pct = as.character(70), avg = rep(0,1), hit_num = rep(0,1))#
+t1 <- rbind(t1, tmp)#
+#
+tmp2 <- t1[order(t1$ground_truth),]#
+View(tmp)#
+sort(t1$ground_truth)#
+#
+#ㅍ임시#
+View(final)#
+final = cbind(t1, len = t2$len)#
+final = cbind(tmp2, len = t2$len)#
+dim(tmp2)#
+final = final %>%#
+  group_by(ground_truth, label, noise_pct, hit_num, len)%>%#
+  summarise(acc = hit_num/len*100, .groups = "keep")#
+#
+l = 180#
+final = t1 %>%#
+  group_by(ground_truth, label, noise_pct, hit_num)%>%#
+  summarise(acc = hit_num/l*100, .groups = "keep")#
+t1#
+#
+FINAL_dt = t1#
+FINAL_dt = final#
+View(FINAL_dt)#
+View(t1)#
+write.csv(FINAL_dt,file = "final.csv",  quote = F)#
+## patterns acc#
+# 이 블락의 코드는 혹시 특정 noise의 값을 하나도 못맞춰서 값이 존재하지 않을 경우 0으로 채워주기 위한 코드#
+#
+for(i in patterns){#
+  tmp = t1%>% filter(ground_truth == i)#
+  print(tmp)#
+  if(nrow(tmp)< 8){#
+    add_r <- 8-nrow(tmp)#
+    ground_truth <- rep(i, add_r)#
+    label <- rep(i,add_r )#
+    noise_pct <- as.character(tail(seq(0,70,10),add_r))#
+    acc <- rep(0, add_r)#
+    avg <- rep(0, add_r)#
+    t <- tibble(ground_truth, label, noise_pct, avg, acc)#
+    assign(paste0(i,"_acc"), bind_rows(tmp,t))#
+  }#
+  else{assign(paste0(i,"_acc"), tmp)}#
+}#
+ACC_RESULT <- bind_rows(bar_R_acc, bar_L_acc, looming_R_acc, looming_L_acc, grating_R_acc, grating_L_acc,#
+                        spotup_R_acc, spotup_L_acc)#
+View(ACC_RESULT)#
+#ACC_RESULT['acc'][25:32,] <- rep(0,8)#
+#
+#ACC_RESULT <- FINAL_dt#
+ACC_RESULT <- FINAL_dt#
+getwd()#
+write.csv(ACC_RESULT, "acc_lowres.csv")#
+#######3#
+getwd()#
+View(FINAL_dt)#
+#####  barL#
+ACC_RESULT <- FINAL_dt#
+View(ACC_RESULT)#
+#####
+g <- ggplot(data=ACC_RESULT, aes(x=noise_pct, y=acc, group = ground_truth)) +#
+  geom_line(aes(color = ground_truth))+#
+  geom_point(aes(color = ground_truth), size = 2)+#
+  ggtitle("Accuracy of patterns by noise")+#
+  xlab("Noise(%)")+#
+  ylab("Accuracy(%)")+#
+  ylim(0,100)#
+#
+g#
+## dataset#
+#ACC_RESULT <- final#
+View(ACC_RESULT)#
+dt_bar <- ACC_RESULT%>% filter(ground_truth == "bar_L"|ground_truth == "bar_R")#
+dt_grating <- ACC_RESULT%>% filter(ground_truth == "grating_L"|ground_truth == "grating_R")#
+dt_looming <-  ACC_RESULT%>% filter(ground_truth == "looming_L"|ground_truth == "looming_R")#
+dt_spotup <- ACC_RESULT%>% filter(ground_truth == "spotup_L"|ground_truth == "spotup_R")#
+#
+dt_bar$noise_pct <- as.integer(dt_bar$noise_pct)#
+dt_bar <- dt_bar[order(dt_bar$noise_pct),]#
+dt_bar <- dt_bar[1:16,]#
+#
+dt_grating$noise_pct <- as.integer(dt_grating$noise_pct)#
+dt_grating <- dt_grating[order(dt_grating$noise_pct),]#
+dt_grating <- dt_grating[1:16,]#
+#
+dt_looming$noise_pct <- as.integer(dt_looming$noise_pct)#
+dt_looming <- dt_looming[order(dt_looming$noise_pct),]#
+dt_looming <- dt_looming[1:16,]#
+#
+dt_spotup$noise_pct <- as.integer(dt_spotup$noise_pct)#
+dt_spotup <- dt_spotup[order(dt_spotup$noise_pct),]#
+dt_spotup <- dt_spotup[1:16,]#
+###
+#### bar#
+g_bar = ggplot(data=dt_bar, aes(x=noise_pct, y=acc, color = ground_truth)) +#
+          geom_line(aes(group = ground_truth))+#
+          geom_point(aes(color = ground_truth), size = 2)+#
+          ggtitle("bar_R and bar_L")+#
+          xlab("Noise(%)")+#
+          theme_classic()+#
+          scale_x_continuous(breaks = seq(0, 70, 10)) +#
+          scale_y_continuous(limits = c(0,100)) +#
+          ylab("Accuracy(%)")#
+       #   ylim(0,100)+#
+          #scale_color_nord('aurora')#+#
+          #geom_label(mapping = aes(label=round(acc,2)), alpha = 0.7 )#
+g_bar#
+#
+#### looming#
+#
+g_looming = ggplot(data=dt_looming, aes(x=noise_pct, y=acc, color = ground_truth)) +#
+  geom_line(aes(group = ground_truth))+#
+  geom_point(aes(color = ground_truth), size = 2)+#
+  ggtitle("looming_R and looming_L")+#
+  theme_classic()+#
+  scale_x_continuous(breaks = seq(0, 70, 10))+#
+  scale_y_continuous(limits = c(0,100))+#
+  ylab("Accuracy(%)")#
+#   ylim(0,100)+#
+#scale_color_nord('aurora')#+#
+#geom_label(mapping = aes(label=round(acc,2)), alpha = 0.7 )#
+g_looming#
+#### spot_up#
+#
+g_spotup = ggplot(data=dt_spotup, aes(x=noise_pct, y=acc, color = ground_truth)) +#
+  geom_line(aes(group = ground_truth))+#
+  geom_point(aes(color = ground_truth), size = 2)+#
+  theme_classic()+#
+  scale_x_continuous(breaks = seq(0, 70, 10)) +#
+  scale_y_continuous(limits = c(0,100)) +#
+  ggtitle("spotup_R and spotup_L")+#
+  xlab("Noise(%)")+#
+  ylab("Accuracy(%)")#+#
+#  ylim(0,100)+#
+#  scale_color_nord('lumina')+#
+#  geom_label(mapping = aes(label=round(acc,2)), alpha = 0.7 )#
+#
+g_spotup#
+#### spot_down#
+#
+#### grating#
+#
+g_grating = ggplot(data=dt_grating, aes(x=noise_pct, y=acc, color = ground_truth)) +#
+  geom_line(aes(group = ground_truth))+#
+  geom_point(aes(color = ground_truth), size = 2)+#
+  ggtitle("grating_R and grating_L")+#
+  theme_classic()+#
+  scale_x_continuous(breaks = seq(0, 70, 10)) +#
+  scale_y_continuous(limits = c(0,100)) +#
+  xlab("Noise(%)")+#
+  ylab("Accuracy(%)")#+#
+#  ylim(0,100)+#
+#  scale_color_nord('lumina')+#
+#  geom_label(mapping = aes(label=round(acc,2)), alpha = 0.7 )#
+g_grating#
+#
+library(gridExtra)#
+grid.arrange(g_bar, g_grating, g_looming, g_spotup, nrow=2)#
+#
+FINAL_dt#
+#방향 합친 그래프#
+#
+dt_bar <- ACC_RESULT%>% filter(ground_truth == "bar_L"| ground_truth == "bar_R")#
+dt_grating <- ACC_RESULT%>% filter(ground_truth == "grating_L"| ground_truth == "grating_R")#
+dt_looming <-  ACC_RESULT%>% filter(ground_truth == "looming_L"| ground_truth == "looming_R")#
+dt_spotup <- ACC_RESULT%>% filter(ground_truth == "spotup_L"| ground_truth == "spotup_R")#
+len_bar <- dim(dt_bar)[1]#
+dt_bar$ground_truth <- rep("bar",len_bar)#
+dt_bar <- dt_bar %>% group_by(noise_pct) %>% summarise(acc = mean(acc))#
+dt_bar$ground_truth <- rep("bar",len_bar/2)#
+#
+len_looming <- dim(dt_looming)[1]#
+dt_looming$ground_truth <- rep("looming",len_looming)#
+dt_looming <- dt_looming %>% group_by(noise_pct) %>% summarise(acc = mean(acc))#
+dt_looming$ground_truth <- rep("looming",len_looming/2)#
+#
+len_spotup <- dim(dt_spotup)[1]#
+dt_spotup$ground_truth <- rep("spotup",len_spotup)#
+dt_spotup <- dt_spotup %>% group_by(noise_pct) %>% summarise(acc = mean(acc))#
+dt_spotup$ground_truth <- rep("spotup",len_spotup/2)#
+len_grating <- dim(dt_grating)[1]#
+dt_grating$ground_truth <- rep("grating",len_grating)#
+dt_grating <- dt_grating %>% group_by(noise_pct) %>% summarise(acc = mean(acc))#
+dt_grating$ground_truth <- rep("grating",len_grating/2)#
+dt_tmp2 <- rbind(dt_bar, dt_grating, dt_looming, dt_spotup)#
+dt_tmp2$noise_pct <- as.integer(dt_tmp2$noise_pct)#
+dt_tmp2 <- dt_tmp2[order(dt_tmp2$noise_pct),]#
+ggplot(data= dt_tmp2[1:32,], aes(x=noise_pct, y=acc, group = ground_truth)) +#
+  geom_line(aes(colour=ground_truth), size = 1)+#
+  theme_classic()+#
+  xlab("Noise(%)")+#
+  ylab("Accuracy(%)")+#
+  ggtitle("Mean accuracy of each pattern")+#
+  theme(plot.title = element_text(hjust = 0.5,size=15,face='bold'))+#
+  scale_y_continuous(limits = c(0,100)) +#
+  scale_x_continuous(breaks = seq(0, 70, 10))#
+View(dt_tmp2)
+install.packages("rjson")#
+install.packages("tidyverse")#
+install.packages("moonBook")#
+install.packages("nord")#
+library(moonBook)#
+library(rjson)#
+library(tidyverse)#
+library(dplyr)#
+library(directlabels)#
+library(tidyverse)#
+library(nord)#
+#
+getwd()#
+#setwd("/Volumes/nisl/soobin/1.3DResnet/2.RESULTS(onon)/5.HMDB_RESOLUTION(320x240)_movement/NOISE_W.O.TRAIN/results2(default)")#
+#setwd("/Volumes/nisl/soobin/1.3DResnet/2.RESULTS(onon)/5.HMDB_RESOLUTION(320x240)_movement/NOISE_W.G.N.TRAIN/NOISE_10/results2")#
+#setwd("/Volumes/nisl/soobin/1.3DResnet/2.RESULTS(onon)/5.HMDB_RESOLUTION(320x240)_movement/NOISE_W.G.N.TRAIN/NOISE_20/results1")#
+#setwd("/Volumes/nisl/soobin/1.3DResnet/2.RESULTS(onon)/5.HMDB_RESOLUTION(320x240)_movement/NOISE_W.TRAIN/results1(normalize255,relu)")#
+setwd("/Volumes/nisl/soobin/1.3DResnet/2.RESULTS(onon)/5.HMDB_RESOLUTION(320x240)_movement/NOISE_W.G.N.TRAIN/NOISE_20/results2")#
+val_json = fromJSON(file = "val.json")#
+val_json_df = as.data.frame(val_json)#
+View(val_json_df)#
+head(val_json_df)#
+#
+# val_json[["results"]][[1]][[1]]$label #
+#val_json[["results"]][[1]][[1]]$score #
+#
+# 1. 각 정답에 대해서 맞은 경우가 있나 보여주는 표#
+# 2. 맞은 경우 (top1에 대해서만) 개수를 세서 *100 acc로 표현 => 이상함...뭐지....spotup_L은 다 맞춤..?#
+# 3. scores의 평균#
+#
+table_func = function(JSONfile, topk_num){#
+    label = c()#
+    ground_truth = c()#
+    score = c()#
+    noise_pct = c()#
+    pattern_num = c()#
+    len <- length(attributes(val_json_df)$name)#
+    topk = 8#
+  for (i in seq(1, len, topk*2)) {#
+      tmp = strsplit(str_sub(attributes(val_json_df)$name[i],9,-7) ,split = "_")#
+      if ( sum(tmp[[1]] %in% "noise"| tmp[[1]] %in% "noisev2") >= 1){#
+        ground_truth = c(ground_truth, paste(tmp[[1]][1],tmp[[1]][2], sep = "_")) # ground truth#
+        noise_pct = c(noise_pct, gsub('\\D','', str_sub(attributes(val_json_df)$name[i],-9,-1)))#
+        label = c(label, val_json_df[attributes(val_json_df)$name[[i]]][[1]]) #predicted_label#
+        score = c(score, val_json_df[attributes(val_json_df)$name[i+1]][[1]]) #predicted_score#
+      }else if(sum(tmp[[1]] %in% "noise") == 0){#
+        ground_truth = c(ground_truth, paste(tmp[[1]][1],tmp[[1]][2], sep = "_")) # ground truth#
+        noise_pct = c(noise_pct, "0")#
+        label = c(label, val_json_df[attributes(val_json_df)$name[[i]]][[1]]) #predicted_label#
+        score = c(score, val_json_df[attributes(val_json_df)$name[i+1]][[1]]) #predicted_score#
+      }#
+    }#
+    Scores <- data.frame(ground_truth, noise_pct, label, score)#
+    return(Scores)#
+}#
+#
+#11520#
+length(ground_truth)#
+unique(noise_pct)#
+unique(ground_truth)#
+View(Scores)#
+Scores <- table_func(val_json_df, 8)#
+#1-length(which(Scores$ground_truth==Scores$label))/length(Scores$ground_truth)#
+write.csv(Scores, file="Scores.csv", quote = F)#
+getwd()#
+#
+############################################# Acc 구하기 ############################################################
+#noise 별로 score, acc 를 구할 수 있다.#
+#
+# 패턴과 노이즈에 따른 개수를 세기 위한 data frame#
+patterns = unique(Scores$ground_truth)#
+length(patterns)#
+t2 = Scores %>%#
+      group_by(ground_truth,noise_pct) %>%#
+      summarise(len = n(), .groups = "keep")#
+t2 %>% filter(ground_truth == "spotup_R")#
+#
+# acc, score 가 일치하는 경우의 acc를 계산하기 위한 data frame#
+#
+t1 = Scores %>%#
+  group_by(ground_truth, label, noise_pct) %>%#
+  filter(ground_truth == label)  %>%#
+  summarise(avg = mean(score), hit_num = n(), .groups = "keep")#
+####
+View(t1)#
+tmp <- data.frame(ground_truth = rep("spotup_R",1), label = rep("spotup_R",1), noise_pct = as.character(70), avg = rep(0,1), hit_num = rep(0,1))#
+t1 <- rbind(t1, tmp)#
+#
+tmp2 <- t1[order(t1$ground_truth),]#
+View(tmp)#
+sort(t1$ground_truth)#
+#
+#ㅍ임시#
+View(final)#
+final = cbind(t1, len = t2$len)#
+final = cbind(tmp2, len = t2$len)#
+dim(tmp2)#
+final = final %>%#
+  group_by(ground_truth, label, noise_pct, hit_num, len)%>%#
+  summarise(acc = hit_num/len*100, .groups = "keep")#
+#
+l = 180#
+final = t1 %>%#
+  group_by(ground_truth, label, noise_pct, hit_num)%>%#
+  summarise(acc = hit_num/l*100, .groups = "keep")#
+t1#
+#
+FINAL_dt = t1#
+FINAL_dt = final#
+View(FINAL_dt)#
+View(t1)#
+write.csv(FINAL_dt,file = "final.csv",  quote = F)#
+## patterns acc#
+# 이 블락의 코드는 혹시 특정 noise의 값을 하나도 못맞춰서 값이 존재하지 않을 경우 0으로 채워주기 위한 코드#
+#
+for(i in patterns){#
+  tmp = t1%>% filter(ground_truth == i)#
+  print(tmp)#
+  if(nrow(tmp)< 8){#
+    add_r <- 8-nrow(tmp)#
+    ground_truth <- rep(i, add_r)#
+    label <- rep(i,add_r )#
+    noise_pct <- as.character(tail(seq(0,70,10),add_r))#
+    acc <- rep(0, add_r)#
+    avg <- rep(0, add_r)#
+    t <- tibble(ground_truth, label, noise_pct, avg, acc)#
+    assign(paste0(i,"_acc"), bind_rows(tmp,t))#
+  }#
+  else{assign(paste0(i,"_acc"), tmp)}#
+}#
+ACC_RESULT <- bind_rows(bar_R_acc, bar_L_acc, looming_R_acc, looming_L_acc, grating_R_acc, grating_L_acc,#
+                        spotup_R_acc, spotup_L_acc)#
+View(ACC_RESULT)#
+#ACC_RESULT['acc'][25:32,] <- rep(0,8)#
+#
+#ACC_RESULT <- FINAL_dt#
+ACC_RESULT <- FINAL_dt#
+getwd()#
+write.csv(ACC_RESULT, "acc_lowres.csv")#
+#######3#
+getwd()#
+View(FINAL_dt)#
+#####  barL#
+ACC_RESULT <- FINAL_dt#
+View(ACC_RESULT)#
+#####
+g <- ggplot(data=ACC_RESULT, aes(x=noise_pct, y=acc, group = ground_truth)) +#
+  geom_line(aes(color = ground_truth))+#
+  geom_point(aes(color = ground_truth), size = 2)+#
+  ggtitle("Accuracy of patterns by noise")+#
+  xlab("Noise(%)")+#
+  ylab("Accuracy(%)")+#
+  ylim(0,100)#
+#
+g#
+## dataset#
+#ACC_RESULT <- final#
+View(ACC_RESULT)#
+dt_bar <- ACC_RESULT%>% filter(ground_truth == "bar_L"|ground_truth == "bar_R")#
+dt_grating <- ACC_RESULT%>% filter(ground_truth == "grating_L"|ground_truth == "grating_R")#
+dt_looming <-  ACC_RESULT%>% filter(ground_truth == "looming_L"|ground_truth == "looming_R")#
+dt_spotup <- ACC_RESULT%>% filter(ground_truth == "spotup_L"|ground_truth == "spotup_R")#
+#
+dt_bar$noise_pct <- as.integer(dt_bar$noise_pct)#
+dt_bar <- dt_bar[order(dt_bar$noise_pct),]#
+dt_bar <- dt_bar[1:16,]#
+#
+dt_grating$noise_pct <- as.integer(dt_grating$noise_pct)#
+dt_grating <- dt_grating[order(dt_grating$noise_pct),]#
+dt_grating <- dt_grating[1:16,]#
+#
+dt_looming$noise_pct <- as.integer(dt_looming$noise_pct)#
+dt_looming <- dt_looming[order(dt_looming$noise_pct),]#
+dt_looming <- dt_looming[1:16,]#
+#
+dt_spotup$noise_pct <- as.integer(dt_spotup$noise_pct)#
+dt_spotup <- dt_spotup[order(dt_spotup$noise_pct),]#
+dt_spotup <- dt_spotup[1:16,]#
+###
+#### bar#
+g_bar = ggplot(data=dt_bar, aes(x=noise_pct, y=acc, color = ground_truth)) +#
+          geom_line(aes(group = ground_truth))+#
+          geom_point(aes(color = ground_truth), size = 2)+#
+          ggtitle("bar_R and bar_L")+#
+          xlab("Noise(%)")+#
+          theme_classic()+#
+          scale_x_continuous(breaks = seq(0, 70, 10)) +#
+          scale_y_continuous(limits = c(0,100)) +#
+          ylab("Accuracy(%)")#
+       #   ylim(0,100)+#
+          #scale_color_nord('aurora')#+#
+          #geom_label(mapping = aes(label=round(acc,2)), alpha = 0.7 )#
+g_bar#
+#
+#### looming#
+#
+g_looming = ggplot(data=dt_looming, aes(x=noise_pct, y=acc, color = ground_truth)) +#
+  geom_line(aes(group = ground_truth))+#
+  geom_point(aes(color = ground_truth), size = 2)+#
+  ggtitle("looming_R and looming_L")+#
+  theme_classic()+#
+  scale_x_continuous(breaks = seq(0, 70, 10))+#
+  scale_y_continuous(limits = c(0,100))+#
+  ylab("Accuracy(%)")#
+#   ylim(0,100)+#
+#scale_color_nord('aurora')#+#
+#geom_label(mapping = aes(label=round(acc,2)), alpha = 0.7 )#
+g_looming#
+#### spot_up#
+#
+g_spotup = ggplot(data=dt_spotup, aes(x=noise_pct, y=acc, color = ground_truth)) +#
+  geom_line(aes(group = ground_truth))+#
+  geom_point(aes(color = ground_truth), size = 2)+#
+  theme_classic()+#
+  scale_x_continuous(breaks = seq(0, 70, 10)) +#
+  scale_y_continuous(limits = c(0,100)) +#
+  ggtitle("spotup_R and spotup_L")+#
+  xlab("Noise(%)")+#
+  ylab("Accuracy(%)")#+#
+#  ylim(0,100)+#
+#  scale_color_nord('lumina')+#
+#  geom_label(mapping = aes(label=round(acc,2)), alpha = 0.7 )#
+#
+g_spotup#
+#### spot_down#
+#
+#### grating#
+#
+g_grating = ggplot(data=dt_grating, aes(x=noise_pct, y=acc, color = ground_truth)) +#
+  geom_line(aes(group = ground_truth))+#
+  geom_point(aes(color = ground_truth), size = 2)+#
+  ggtitle("grating_R and grating_L")+#
+  theme_classic()+#
+  scale_x_continuous(breaks = seq(0, 70, 10)) +#
+  scale_y_continuous(limits = c(0,100)) +#
+  xlab("Noise(%)")+#
+  ylab("Accuracy(%)")#+#
+#  ylim(0,100)+#
+#  scale_color_nord('lumina')+#
+#  geom_label(mapping = aes(label=round(acc,2)), alpha = 0.7 )#
+g_grating#
+#
+library(gridExtra)#
+grid.arrange(g_bar, g_grating, g_looming, g_spotup, nrow=2)#
+#
+FINAL_dt#
+#방향 합친 그래프#
+#
+dt_bar <- ACC_RESULT%>% filter(ground_truth == "bar_L"| ground_truth == "bar_R")#
+dt_grating <- ACC_RESULT%>% filter(ground_truth == "grating_L"| ground_truth == "grating_R")#
+dt_looming <-  ACC_RESULT%>% filter(ground_truth == "looming_L"| ground_truth == "looming_R")#
+dt_spotup <- ACC_RESULT%>% filter(ground_truth == "spotup_L"| ground_truth == "spotup_R")#
+len_bar <- dim(dt_bar)[1]#
+dt_bar$ground_truth <- rep("bar",len_bar)#
+dt_bar <- dt_bar %>% group_by(noise_pct) %>% summarise(acc = mean(acc))#
+dt_bar$ground_truth <- rep("bar",len_bar/2)#
+#
+len_looming <- dim(dt_looming)[1]#
+dt_looming$ground_truth <- rep("looming",len_looming)#
+dt_looming <- dt_looming %>% group_by(noise_pct) %>% summarise(acc = mean(acc))#
+dt_looming$ground_truth <- rep("looming",len_looming/2)#
+#
+len_spotup <- dim(dt_spotup)[1]#
+dt_spotup$ground_truth <- rep("spotup",len_spotup)#
+dt_spotup <- dt_spotup %>% group_by(noise_pct) %>% summarise(acc = mean(acc))#
+dt_spotup$ground_truth <- rep("spotup",len_spotup/2)#
+len_grating <- dim(dt_grating)[1]#
+dt_grating$ground_truth <- rep("grating",len_grating)#
+dt_grating <- dt_grating %>% group_by(noise_pct) %>% summarise(acc = mean(acc))#
+dt_grating$ground_truth <- rep("grating",len_grating/2)#
+dt_tmp2 <- rbind(dt_bar, dt_grating, dt_looming, dt_spotup)#
+dt_tmp2$noise_pct <- as.integer(dt_tmp2$noise_pct)#
+dt_tmp2 <- dt_tmp2[order(dt_tmp2$noise_pct),]#
+ggplot(data= dt_tmp2[1:32,], aes(x=noise_pct, y=acc, group = ground_truth)) +#
+  geom_line(aes(colour=ground_truth), size = 1)+#
+  theme_classic()+#
+  xlab("Noise(%)")+#
+  ylab("Accuracy(%)")+#
+  ggtitle("Mean accuracy of each pattern")+#
+  theme(plot.title = element_text(hjust = 0.5,size=15,face='bold'))+#
+  scale_y_continuous(limits = c(0,100)) +#
+  scale_x_continuous(breaks = seq(0, 70, 10))#
+View(dt_tmp2)
+install.packages("rjson")#
+install.packages("tidyverse")#
+install.packages("moonBook")#
+install.packages("nord")#
+library(moonBook)#
+library(rjson)#
+library(tidyverse)#
+library(dplyr)#
+library(directlabels)#
+library(tidyverse)#
+library(nord)#
+#
+getwd()#
+#setwd("/Volumes/nisl/soobin/1.3DResnet/2.RESULTS(onon)/5.HMDB_RESOLUTION(320x240)_movement/NOISE_W.O.TRAIN/results2(default)")#
+#setwd("/Volumes/nisl/soobin/1.3DResnet/2.RESULTS(onon)/5.HMDB_RESOLUTION(320x240)_movement/NOISE_W.G.N.TRAIN/NOISE_10/results2")#
+#setwd("/Volumes/nisl/soobin/1.3DResnet/2.RESULTS(onon)/5.HMDB_RESOLUTION(320x240)_movement/NOISE_W.G.N.TRAIN/NOISE_20/results1")#
+#setwd("/Volumes/nisl/soobin/1.3DResnet/2.RESULTS(onon)/5.HMDB_RESOLUTION(320x240)_movement/NOISE_W.TRAIN/results1(normalize255,relu)")#
+setwd("/Volumes/nisl/soobin/1.3DResnet/2.RESULTS(onon)/5.HMDB_RESOLUTION(320x240)_movement/NOISE_W.G.N.TRAIN/NOISE_20/results2")#
+val_json = fromJSON(file = "val.json")#
+val_json_df = as.data.frame(val_json)#
+View(val_json_df)#
+head(val_json_df)#
+#
+# val_json[["results"]][[1]][[1]]$label #
+#val_json[["results"]][[1]][[1]]$score #
+#
+# 1. 각 정답에 대해서 맞은 경우가 있나 보여주는 표#
+# 2. 맞은 경우 (top1에 대해서만) 개수를 세서 *100 acc로 표현 => 이상함...뭐지....spotup_L은 다 맞춤..?#
+# 3. scores의 평균#
+#
+table_func = function(JSONfile, topk_num){#
+    label = c()#
+    ground_truth = c()#
+    score = c()#
+    noise_pct = c()#
+    pattern_num = c()#
+    len <- length(attributes(val_json_df)$name)#
+    topk = 8#
+  for (i in seq(1, len, topk*2)) {#
+      tmp = strsplit(str_sub(attributes(val_json_df)$name[i],9,-7) ,split = "_")#
+      if ( sum(tmp[[1]] %in% "noise"| tmp[[1]] %in% "noisev2") >= 1){#
+        ground_truth = c(ground_truth, paste(tmp[[1]][1],tmp[[1]][2], sep = "_")) # ground truth#
+        noise_pct = c(noise_pct, gsub('\\D','', str_sub(attributes(val_json_df)$name[i],-9,-1)))#
+        label = c(label, val_json_df[attributes(val_json_df)$name[[i]]][[1]]) #predicted_label#
+        score = c(score, val_json_df[attributes(val_json_df)$name[i+1]][[1]]) #predicted_score#
+      }else if(sum(tmp[[1]] %in% "noise") == 0){#
+        ground_truth = c(ground_truth, paste(tmp[[1]][1],tmp[[1]][2], sep = "_")) # ground truth#
+        noise_pct = c(noise_pct, "0")#
+        label = c(label, val_json_df[attributes(val_json_df)$name[[i]]][[1]]) #predicted_label#
+        score = c(score, val_json_df[attributes(val_json_df)$name[i+1]][[1]]) #predicted_score#
+      }#
+    }#
+    Scores <- data.frame(ground_truth, noise_pct, label, score)#
+    return(Scores)#
+}#
+#
+#11520#
+length(ground_truth)#
+unique(noise_pct)#
+unique(ground_truth)#
+View(Scores)#
+Scores <- table_func(val_json_df, 8)#
+#1-length(which(Scores$ground_truth==Scores$label))/length(Scores$ground_truth)#
+write.csv(Scores, file="Scores.csv", quote = F)#
+getwd()#
+#
+############################################# Acc 구하기 ############################################################
+#noise 별로 score, acc 를 구할 수 있다.#
+#
+# 패턴과 노이즈에 따른 개수를 세기 위한 data frame#
+patterns = unique(Scores$ground_truth)#
+length(patterns)#
+t2 = Scores %>%#
+      group_by(ground_truth,noise_pct) %>%#
+      summarise(len = n(), .groups = "keep")#
+t2 %>% filter(ground_truth == "spotup_R")#
+#
+# acc, score 가 일치하는 경우의 acc를 계산하기 위한 data frame#
+#
+t1 = Scores %>%#
+  group_by(ground_truth, label, noise_pct) %>%#
+  filter(ground_truth == label)  %>%#
+  summarise(avg = mean(score), hit_num = n(), .groups = "keep")#
+####
+View(t1)#
+tmp <- data.frame(ground_truth = rep("spotup_R",1), label = rep("spotup_R",1), noise_pct = as.character(70), avg = rep(0,1), hit_num = rep(0,1))#
+t1 <- rbind(t1, tmp)#
+#
+tmp2 <- t1[order(t1$ground_truth),]#
+View(tmp)#
+sort(t1$ground_truth)#
+#
+#ㅍ임시#
+View(final)#
+final = cbind(t1, len = t2$len)#
+final = cbind(tmp2, len = t2$len)#
+dim(tmp2)#
+final = final %>%#
+  group_by(ground_truth, label, noise_pct, hit_num, len)%>%#
+  summarise(acc = hit_num/len*100, .groups = "keep")#
+#
+l = 180#
+final = t1 %>%#
+  group_by(ground_truth, label, noise_pct, hit_num)%>%#
+  summarise(acc = hit_num/l*100, .groups = "keep")#
+t1#
+#
+FINAL_dt = t1#
+FINAL_dt = final#
+View(FINAL_dt)#
+View(t1)#
+write.csv(FINAL_dt,file = "final.csv",  quote = F)#
+## patterns acc#
+# 이 블락의 코드는 혹시 특정 noise의 값을 하나도 못맞춰서 값이 존재하지 않을 경우 0으로 채워주기 위한 코드#
+#
+for(i in patterns){#
+  tmp = t1%>% filter(ground_truth == i)#
+  print(tmp)#
+  if(nrow(tmp)< 8){#
+    add_r <- 8-nrow(tmp)#
+    ground_truth <- rep(i, add_r)#
+    label <- rep(i,add_r )#
+    noise_pct <- as.character(tail(seq(0,70,10),add_r))#
+    acc <- rep(0, add_r)#
+    avg <- rep(0, add_r)#
+    t <- tibble(ground_truth, label, noise_pct, avg, acc)#
+    assign(paste0(i,"_acc"), bind_rows(tmp,t))#
+  }#
+  else{assign(paste0(i,"_acc"), tmp)}#
+}#
+ACC_RESULT <- bind_rows(bar_R_acc, bar_L_acc, looming_R_acc, looming_L_acc, grating_R_acc, grating_L_acc,#
+                        spotup_R_acc, spotup_L_acc)#
+View(ACC_RESULT)#
+#ACC_RESULT['acc'][25:32,] <- rep(0,8)#
+#
+#ACC_RESULT <- FINAL_dt#
+ACC_RESULT <- FINAL_dt#
+getwd()#
+write.csv(ACC_RESULT, "acc_lowres.csv")#
+#######3#
+getwd()#
+View(FINAL_dt)#
+#####  barL#
+ACC_RESULT <- FINAL_dt#
+View(ACC_RESULT)#
+#####
+g <- ggplot(data=ACC_RESULT, aes(x=noise_pct, y=acc, group = ground_truth)) +#
+  geom_line(aes(color = ground_truth))+#
+  geom_point(aes(color = ground_truth), size = 2)+#
+  ggtitle("Accuracy of patterns by noise")+#
+  xlab("Noise(%)")+#
+  ylab("Accuracy(%)")+#
+  ylim(0,100)#
+#
+g#
+## dataset#
+#ACC_RESULT <- final#
+View(ACC_RESULT)#
+dt_bar <- ACC_RESULT%>% filter(ground_truth == "bar_L"|ground_truth == "bar_R")#
+dt_grating <- ACC_RESULT%>% filter(ground_truth == "grating_L"|ground_truth == "grating_R")#
+dt_looming <-  ACC_RESULT%>% filter(ground_truth == "looming_L"|ground_truth == "looming_R")#
+dt_spotup <- ACC_RESULT%>% filter(ground_truth == "spotup_L"|ground_truth == "spotup_R")#
+#
+dt_bar$noise_pct <- as.integer(dt_bar$noise_pct)#
+dt_bar <- dt_bar[order(dt_bar$noise_pct),]#
+dt_bar <- dt_bar[1:16,]#
+#
+dt_grating$noise_pct <- as.integer(dt_grating$noise_pct)#
+dt_grating <- dt_grating[order(dt_grating$noise_pct),]#
+dt_grating <- dt_grating[1:16,]#
+#
+dt_looming$noise_pct <- as.integer(dt_looming$noise_pct)#
+dt_looming <- dt_looming[order(dt_looming$noise_pct),]#
+dt_looming <- dt_looming[1:16,]#
+#
+dt_spotup$noise_pct <- as.integer(dt_spotup$noise_pct)#
+dt_spotup <- dt_spotup[order(dt_spotup$noise_pct),]#
+dt_spotup <- dt_spotup[1:16,]#
+###
+#### bar#
+g_bar = ggplot(data=dt_bar, aes(x=noise_pct, y=acc, color = ground_truth)) +#
+          geom_line(aes(group = ground_truth))+#
+          geom_point(aes(color = ground_truth), size = 2)+#
+          ggtitle("bar_R and bar_L")+#
+          xlab("Noise(%)")+#
+          theme_classic()+#
+          scale_x_continuous(breaks = seq(0, 70, 10)) +#
+          scale_y_continuous(limits = c(0,100)) +#
+          ylab("Accuracy(%)")#
+       #   ylim(0,100)+#
+          #scale_color_nord('aurora')#+#
+          #geom_label(mapping = aes(label=round(acc,2)), alpha = 0.7 )#
+g_bar#
+#
+#### looming#
+#
+g_looming = ggplot(data=dt_looming, aes(x=noise_pct, y=acc, color = ground_truth)) +#
+  geom_line(aes(group = ground_truth))+#
+  geom_point(aes(color = ground_truth), size = 2)+#
+  ggtitle("looming_R and looming_L")+#
+  theme_classic()+#
+  scale_x_continuous(breaks = seq(0, 70, 10))+#
+  scale_y_continuous(limits = c(0,100))+#
+  ylab("Accuracy(%)")#
+#   ylim(0,100)+#
+#scale_color_nord('aurora')#+#
+#geom_label(mapping = aes(label=round(acc,2)), alpha = 0.7 )#
+g_looming#
+#### spot_up#
+#
+g_spotup = ggplot(data=dt_spotup, aes(x=noise_pct, y=acc, color = ground_truth)) +#
+  geom_line(aes(group = ground_truth))+#
+  geom_point(aes(color = ground_truth), size = 2)+#
+  theme_classic()+#
+  scale_x_continuous(breaks = seq(0, 70, 10)) +#
+  scale_y_continuous(limits = c(0,100)) +#
+  ggtitle("spotup_R and spotup_L")+#
+  xlab("Noise(%)")+#
+  ylab("Accuracy(%)")#+#
+#  ylim(0,100)+#
+#  scale_color_nord('lumina')+#
+#  geom_label(mapping = aes(label=round(acc,2)), alpha = 0.7 )#
+#
+g_spotup#
+#### spot_down#
+#
+#### grating#
+#
+g_grating = ggplot(data=dt_grating, aes(x=noise_pct, y=acc, color = ground_truth)) +#
+  geom_line(aes(group = ground_truth))+#
+  geom_point(aes(color = ground_truth), size = 2)+#
+  ggtitle("grating_R and grating_L")+#
+  theme_classic()+#
+  scale_x_continuous(breaks = seq(0, 70, 10)) +#
+  scale_y_continuous(limits = c(0,100)) +#
+  xlab("Noise(%)")+#
+  ylab("Accuracy(%)")#+#
+#  ylim(0,100)+#
+#  scale_color_nord('lumina')+#
+#  geom_label(mapping = aes(label=round(acc,2)), alpha = 0.7 )#
+g_grating#
+#
+library(gridExtra)#
+grid.arrange(g_bar, g_grating, g_looming, g_spotup, nrow=2)#
+#
+FINAL_dt#
+#방향 합친 그래프#
+#
+dt_bar <- ACC_RESULT%>% filter(ground_truth == "bar_L"| ground_truth == "bar_R")#
+dt_grating <- ACC_RESULT%>% filter(ground_truth == "grating_L"| ground_truth == "grating_R")#
+dt_looming <-  ACC_RESULT%>% filter(ground_truth == "looming_L"| ground_truth == "looming_R")#
+dt_spotup <- ACC_RESULT%>% filter(ground_truth == "spotup_L"| ground_truth == "spotup_R")#
+len_bar <- dim(dt_bar)[1]#
+dt_bar$ground_truth <- rep("bar",len_bar)#
+dt_bar <- dt_bar %>% group_by(noise_pct) %>% summarise(acc = mean(acc))#
+dt_bar$ground_truth <- rep("bar",len_bar/2)#
+#
+len_looming <- dim(dt_looming)[1]#
+dt_looming$ground_truth <- rep("looming",len_looming)#
+dt_looming <- dt_looming %>% group_by(noise_pct) %>% summarise(acc = mean(acc))#
+dt_looming$ground_truth <- rep("looming",len_looming/2)#
+#
+len_spotup <- dim(dt_spotup)[1]#
+dt_spotup$ground_truth <- rep("spotup",len_spotup)#
+dt_spotup <- dt_spotup %>% group_by(noise_pct) %>% summarise(acc = mean(acc))#
+dt_spotup$ground_truth <- rep("spotup",len_spotup/2)#
+len_grating <- dim(dt_grating)[1]#
+dt_grating$ground_truth <- rep("grating",len_grating)#
+dt_grating <- dt_grating %>% group_by(noise_pct) %>% summarise(acc = mean(acc))#
+dt_grating$ground_truth <- rep("grating",len_grating/2)#
+dt_tmp2 <- rbind(dt_bar, dt_grating, dt_looming, dt_spotup)#
+dt_tmp2$noise_pct <- as.integer(dt_tmp2$noise_pct)#
+dt_tmp2 <- dt_tmp2[order(dt_tmp2$noise_pct),]#
+ggplot(data= dt_tmp2[1:32,], aes(x=noise_pct, y=acc, group = ground_truth)) +#
+  geom_line(aes(colour=ground_truth), size = 1)+#
+  theme_classic()+#
+  xlab("Noise(%)")+#
+  ylab("Accuracy(%)")+#
+  ggtitle("Mean accuracy of each pattern")+#
+  theme(plot.title = element_text(hjust = 0.5,size=15,face='bold'))+#
+  scale_y_continuous(limits = c(0,100)) +#
+  scale_x_continuous(breaks = seq(0, 70, 10))#
+View(dt_tmp2)
+install.packages("rjson")#
+install.packages("tidyverse")#
+install.packages("moonBook")#
+install.packages("nord")#
+library(moonBook)#
+library(rjson)#
+library(tidyverse)#
+library(dplyr)#
+library(directlabels)#
+library(tidyverse)#
+library(nord)#
+#
+getwd()#
+#setwd("/Volumes/nisl/soobin/1.3DResnet/2.RESULTS(onon)/5.HMDB_RESOLUTION(320x240)_movement/NOISE_W.O.TRAIN/results2(default)")#
+#setwd("/Volumes/nisl/soobin/1.3DResnet/2.RESULTS(onon)/5.HMDB_RESOLUTION(320x240)_movement/NOISE_W.G.N.TRAIN/NOISE_10/results2")#
+#setwd("/Volumes/nisl/soobin/1.3DResnet/2.RESULTS(onon)/5.HMDB_RESOLUTION(320x240)_movement/NOISE_W.G.N.TRAIN/NOISE_20/results1")#
+#setwd("/Volumes/nisl/soobin/1.3DResnet/2.RESULTS(onon)/5.HMDB_RESOLUTION(320x240)_movement/NOISE_W.TRAIN/results1(normalize255,relu)")#
+setwd("/Volumes/nisl/soobin/1.3DResnet/2.RESULTS(onon)/5.HMDB_RESOLUTION(320x240)_movement/NOISE_W.G.N.TRAIN/NOISE_20/results2")#
+val_json = fromJSON(file = "val.json")#
+val_json_df = as.data.frame(val_json)#
+View(val_json_df)#
+head(val_json_df)#
+#
+# val_json[["results"]][[1]][[1]]$label #
+#val_json[["results"]][[1]][[1]]$score #
+#
+# 1. 각 정답에 대해서 맞은 경우가 있나 보여주는 표#
+# 2. 맞은 경우 (top1에 대해서만) 개수를 세서 *100 acc로 표현 => 이상함...뭐지....spotup_L은 다 맞춤..?#
+# 3. scores의 평균#
+#
+table_func = function(JSONfile, topk_num){#
+    label = c()#
+    ground_truth = c()#
+    score = c()#
+    noise_pct = c()#
+    pattern_num = c()#
+    len <- length(attributes(val_json_df)$name)#
+    topk = 8#
+  for (i in seq(1, len, topk*2)) {#
+      tmp = strsplit(str_sub(attributes(val_json_df)$name[i],9,-7) ,split = "_")#
+      if ( sum(tmp[[1]] %in% "noise"| tmp[[1]] %in% "noisev2") >= 1){#
+        ground_truth = c(ground_truth, paste(tmp[[1]][1],tmp[[1]][2], sep = "_")) # ground truth#
+        noise_pct = c(noise_pct, gsub('\\D','', str_sub(attributes(val_json_df)$name[i],-9,-1)))#
+        label = c(label, val_json_df[attributes(val_json_df)$name[[i]]][[1]]) #predicted_label#
+        score = c(score, val_json_df[attributes(val_json_df)$name[i+1]][[1]]) #predicted_score#
+      }else if(sum(tmp[[1]] %in% "noise") == 0){#
+        ground_truth = c(ground_truth, paste(tmp[[1]][1],tmp[[1]][2], sep = "_")) # ground truth#
+        noise_pct = c(noise_pct, "0")#
+        label = c(label, val_json_df[attributes(val_json_df)$name[[i]]][[1]]) #predicted_label#
+        score = c(score, val_json_df[attributes(val_json_df)$name[i+1]][[1]]) #predicted_score#
+      }#
+    }#
+    Scores <- data.frame(ground_truth, noise_pct, label, score)#
+    return(Scores)#
+}#
+#
+#11520#
+Scores <- table_func(val_json_df, 8)#
+#
+length(Scores$ground_truth)#
+unique(Scores$noise_pct)#
+unique(ground_truth)#
+View(Scores)#
+Scores <- table_func(val_json_df, 8)#
+#1-length(which(Scores$ground_truth==Scores$label))/length(Scores$ground_truth)#
+write.csv(Scores, file="Scores.csv", quote = F)#
+getwd()#
+#
+############################################# Acc 구하기 ############################################################
+#noise 별로 score, acc 를 구할 수 있다.#
+#
+# 패턴과 노이즈에 따른 개수를 세기 위한 data frame#
+patterns = unique(Scores$ground_truth)#
+length(patterns)#
+t2 = Scores %>%#
+      group_by(ground_truth,noise_pct) %>%#
+      summarise(len = n(), .groups = "keep")#
+t2 %>% filter(ground_truth == "spotup_R")#
+#
+# acc, score 가 일치하는 경우의 acc를 계산하기 위한 data frame#
+#
+t1 = Scores %>%#
+  group_by(ground_truth, label, noise_pct) %>%#
+  filter(ground_truth == label)  %>%#
+  summarise(avg = mean(score), hit_num = n(), .groups = "keep")#
+####
+View(t1)#
+tmp <- data.frame(ground_truth = rep("spotup_R",1), label = rep("spotup_R",1), noise_pct = as.character(70), avg = rep(0,1), hit_num = rep(0,1))#
+t1 <- rbind(t1, tmp)#
+#
+tmp2 <- t1[order(t1$ground_truth),]#
+View(tmp)#
+sort(t1$ground_truth)#
+#
+#ㅍ임시#
+View(final)#
+final = cbind(t1, len = t2$len)#
+final = cbind(tmp2, len = t2$len)#
+dim(tmp2)#
+final = final %>%#
+  group_by(ground_truth, label, noise_pct, hit_num, len)%>%#
+  summarise(acc = hit_num/len*100, .groups = "keep")#
+#
+l = 180#
+final = t1 %>%#
+  group_by(ground_truth, label, noise_pct, hit_num)%>%#
+  summarise(acc = hit_num/l*100, .groups = "keep")#
+t1#
+#
+FINAL_dt = t1#
+FINAL_dt = final#
+View(FINAL_dt)#
+View(t1)#
+write.csv(FINAL_dt,file = "final.csv",  quote = F)#
+## patterns acc#
+# 이 블락의 코드는 혹시 특정 noise의 값을 하나도 못맞춰서 값이 존재하지 않을 경우 0으로 채워주기 위한 코드#
+#
+for(i in patterns){#
+  tmp = t1%>% filter(ground_truth == i)#
+  print(tmp)#
+  if(nrow(tmp)< 8){#
+    add_r <- 8-nrow(tmp)#
+    ground_truth <- rep(i, add_r)#
+    label <- rep(i,add_r )#
+    noise_pct <- as.character(tail(seq(0,70,10),add_r))#
+    acc <- rep(0, add_r)#
+    avg <- rep(0, add_r)#
+    t <- tibble(ground_truth, label, noise_pct, avg, acc)#
+    assign(paste0(i,"_acc"), bind_rows(tmp,t))#
+  }#
+  else{assign(paste0(i,"_acc"), tmp)}#
+}#
+ACC_RESULT <- bind_rows(bar_R_acc, bar_L_acc, looming_R_acc, looming_L_acc, grating_R_acc, grating_L_acc,#
+                        spotup_R_acc, spotup_L_acc)#
+View(ACC_RESULT)#
+#ACC_RESULT['acc'][25:32,] <- rep(0,8)#
+#
+#ACC_RESULT <- FINAL_dt#
+ACC_RESULT <- FINAL_dt#
+getwd()#
+write.csv(ACC_RESULT, "acc_lowres.csv")#
+#######3#
+getwd()#
+View(FINAL_dt)#
+#####  barL#
+ACC_RESULT <- FINAL_dt#
+View(ACC_RESULT)#
+#####
+g <- ggplot(data=ACC_RESULT, aes(x=noise_pct, y=acc, group = ground_truth)) +#
+  geom_line(aes(color = ground_truth))+#
+  geom_point(aes(color = ground_truth), size = 2)+#
+  ggtitle("Accuracy of patterns by noise")+#
+  xlab("Noise(%)")+#
+  ylab("Accuracy(%)")+#
+  ylim(0,100)#
+#
+g#
+## dataset#
+#ACC_RESULT <- final#
+View(ACC_RESULT)#
+dt_bar <- ACC_RESULT%>% filter(ground_truth == "bar_L"|ground_truth == "bar_R")#
+dt_grating <- ACC_RESULT%>% filter(ground_truth == "grating_L"|ground_truth == "grating_R")#
+dt_looming <-  ACC_RESULT%>% filter(ground_truth == "looming_L"|ground_truth == "looming_R")#
+dt_spotup <- ACC_RESULT%>% filter(ground_truth == "spotup_L"|ground_truth == "spotup_R")#
+#
+dt_bar$noise_pct <- as.integer(dt_bar$noise_pct)#
+dt_bar <- dt_bar[order(dt_bar$noise_pct),]#
+dt_bar <- dt_bar[1:16,]#
+#
+dt_grating$noise_pct <- as.integer(dt_grating$noise_pct)#
+dt_grating <- dt_grating[order(dt_grating$noise_pct),]#
+dt_grating <- dt_grating[1:16,]#
+#
+dt_looming$noise_pct <- as.integer(dt_looming$noise_pct)#
+dt_looming <- dt_looming[order(dt_looming$noise_pct),]#
+dt_looming <- dt_looming[1:16,]#
+#
+dt_spotup$noise_pct <- as.integer(dt_spotup$noise_pct)#
+dt_spotup <- dt_spotup[order(dt_spotup$noise_pct),]#
+dt_spotup <- dt_spotup[1:16,]#
+###
+#### bar#
+g_bar = ggplot(data=dt_bar, aes(x=noise_pct, y=acc, color = ground_truth)) +#
+          geom_line(aes(group = ground_truth))+#
+          geom_point(aes(color = ground_truth), size = 2)+#
+          ggtitle("bar_R and bar_L")+#
+          xlab("Noise(%)")+#
+          theme_classic()+#
+          scale_x_continuous(breaks = seq(0, 70, 10)) +#
+          scale_y_continuous(limits = c(0,100)) +#
+          ylab("Accuracy(%)")#
+       #   ylim(0,100)+#
+          #scale_color_nord('aurora')#+#
+          #geom_label(mapping = aes(label=round(acc,2)), alpha = 0.7 )#
+g_bar#
+#
+#### looming#
+#
+g_looming = ggplot(data=dt_looming, aes(x=noise_pct, y=acc, color = ground_truth)) +#
+  geom_line(aes(group = ground_truth))+#
+  geom_point(aes(color = ground_truth), size = 2)+#
+  ggtitle("looming_R and looming_L")+#
+  theme_classic()+#
+  scale_x_continuous(breaks = seq(0, 70, 10))+#
+  scale_y_continuous(limits = c(0,100))+#
+  ylab("Accuracy(%)")#
+#   ylim(0,100)+#
+#scale_color_nord('aurora')#+#
+#geom_label(mapping = aes(label=round(acc,2)), alpha = 0.7 )#
+g_looming#
+#### spot_up#
+#
+g_spotup = ggplot(data=dt_spotup, aes(x=noise_pct, y=acc, color = ground_truth)) +#
+  geom_line(aes(group = ground_truth))+#
+  geom_point(aes(color = ground_truth), size = 2)+#
+  theme_classic()+#
+  scale_x_continuous(breaks = seq(0, 70, 10)) +#
+  scale_y_continuous(limits = c(0,100)) +#
+  ggtitle("spotup_R and spotup_L")+#
+  xlab("Noise(%)")+#
+  ylab("Accuracy(%)")#+#
+#  ylim(0,100)+#
+#  scale_color_nord('lumina')+#
+#  geom_label(mapping = aes(label=round(acc,2)), alpha = 0.7 )#
+#
+g_spotup#
+#### spot_down#
+#
+#### grating#
+#
+g_grating = ggplot(data=dt_grating, aes(x=noise_pct, y=acc, color = ground_truth)) +#
+  geom_line(aes(group = ground_truth))+#
+  geom_point(aes(color = ground_truth), size = 2)+#
+  ggtitle("grating_R and grating_L")+#
+  theme_classic()+#
+  scale_x_continuous(breaks = seq(0, 70, 10)) +#
+  scale_y_continuous(limits = c(0,100)) +#
+  xlab("Noise(%)")+#
+  ylab("Accuracy(%)")#+#
+#  ylim(0,100)+#
+#  scale_color_nord('lumina')+#
+#  geom_label(mapping = aes(label=round(acc,2)), alpha = 0.7 )#
+g_grating#
+#
+library(gridExtra)#
+grid.arrange(g_bar, g_grating, g_looming, g_spotup, nrow=2)#
+#
+FINAL_dt#
+#방향 합친 그래프#
+#
+dt_bar <- ACC_RESULT%>% filter(ground_truth == "bar_L"| ground_truth == "bar_R")#
+dt_grating <- ACC_RESULT%>% filter(ground_truth == "grating_L"| ground_truth == "grating_R")#
+dt_looming <-  ACC_RESULT%>% filter(ground_truth == "looming_L"| ground_truth == "looming_R")#
+dt_spotup <- ACC_RESULT%>% filter(ground_truth == "spotup_L"| ground_truth == "spotup_R")#
+dt_bar <- ACC_RESULT %>% #
+  filter(ground_truth == "bar_L" | ground_truth == "bar_R") %>%#
+  group_by(noise_pct) %>%#
+  summarise(acc = mean(acc), .groups = "drop")#
+#
+dt_bar$ground_truth <- "bar"#
+dt_looming <- ACC_RESULT %>% #
+  filter(ground_truth == "looming_L" | ground_truth == "looming_R") %>%#
+  group_by(noise_pct) %>%#
+  summarise(acc = mean(acc), .groups = "drop")#
+#
+dt_looming$ground_truth <- "looming"#
+dt_spotup <- ACC_RESULT %>% #
+  filter(ground_truth == "spotup_L" | ground_truth == "spotup_R") %>%#
+  group_by(noise_pct) %>%#
+  summarise(acc = mean(acc), .groups = "drop")#
+#
+dt_spotup$ground_truth <- "spotup"#
+dt_grating <- ACC_RESULT %>% #
+  filter(ground_truth == "grating_L" | ground_truth == "grating_R") %>%#
+  group_by(noise_pct) %>%#
+  summarise(acc = mean(acc), .groups = "drop")#
+#
+dt_grating$ground_truth <- "grating"#
+dt_tmp2 <- rbind(dt_bar, dt_grating, dt_looming, dt_spotup)#
+#
+dt_tmp2$noise_pct <- as.integer(dt_tmp2$noise_pct)#
+#
+dt_tmp2 <- dt_tmp2[order(dt_tmp2$noise_pct),]#
+ggplot(data = dt_tmp2,#
+       aes(x = noise_pct,#
+           y = acc,#
+           group = ground_truth)) +#
+  geom_line(aes(colour = ground_truth), linewidth = 1) +#
+  theme_classic() +#
+  xlab("Noise(%)") +#
+  ylab("Accuracy(%)") +#
+  ggtitle("Mean accuracy of each pattern") +#
+  theme(plot.title = element_text(hjust = 0.5,#
+                                  size = 15,#
+                                  face = 'bold')) +#
+  scale_y_continuous(limits = c(0,100)) +#
+  scale_x_continuous(breaks = seq(0,70,10))
+exists("dt_bar")#
+exists("dt_grating")#
+exists("dt_looming")#
+exists("dt_spotup")
+exists("ACC_RESULT")
+exists("scores")

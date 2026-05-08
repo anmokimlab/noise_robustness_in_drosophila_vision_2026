@@ -439,7 +439,7 @@ for mat_file_idx=1:length(file_list)/2
 
     
 
-    %% Calculate NRI - trapezoidal rule of integration(contain all non-significant) -- Figure 2C
+    %% Calculate NRI -- Figure 2C
     
     for pattern_idx=1:4
         for n=1:1:size(wba_flyavg,2) % n=[1:29,31,33:42]
